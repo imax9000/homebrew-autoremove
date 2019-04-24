@@ -1,0 +1,96 @@
+#!/usr/bin/env ruby
+
+#:  * `autoremove`:
+#:    Remove formulae that were installed as dependencies and are not needed
+#:    anymore. Works best after `brew cleanup`.
+#:
+#:    `brew autoremove <-f|--force>`:
+#:    Same as above, but without asking any questions.
+#:
+#:    `brew autoremove <-l|--list>`:
+#:    Just print the list of packages to be removed.
+
+require 'json'
+require 'optparse'
+
+skip_confirmation = false
+list_only = false
+
+OptionParser.new { |opts|
+	opts.on('-f', '--force', 'Remove formulae without asking for confirmation') { |v|
+		skip_confirmation = v
+	}
+	opts.on('-l', '--list', 'Just print the list of formulae that are not depended on anymore.') { |v|
+		list_only = v
+	}
+}.parse!
+
+info = JSON.parse(`brew info --json=v1 --installed`)
+
+graph = Hash.new()
+
+# Create graph nodes for every entry.
+info.each { |f|
+	requested = f['installed'].any?{|ver| ver['installed_on_request']}
+
+	graph[f['full_name']] = {
+		:requested => requested,
+		:rdeps => [],
+	}
+}
+
+# Populate rdeps.
+info.each { |f|
+	deps = f['installed'].map{|ver| ver['runtime_dependencies'].map{|dep| dep['full_name']}}.flatten.sort.uniq
+
+	deps.each { |dep|
+		graph[dep][:rdeps].push(f['full_name'])
+	}
+}
+
+# Generate list unused entries.
+remove = []
+loop {
+	l = []
+	graph.each { |name, node|
+		l.push(name) unless node[:requested] || node[:rdeps].any?{|rdep| graph.has_key?(rdep)}
+	}
+	break if l.empty?
+	remove.concat(l)
+	l.each { |name|
+		graph.delete(name)
+	}
+}
+
+remove.sort!
+
+if list_only
+	puts remove
+	exit(0)
+end
+
+if remove.empty?
+	exit(0)
+end
+
+puts "The following formulae seem to be not required for anything:\n\n"
+puts remove
+
+if skip_confirmation
+	answer = 'y'
+else
+puts "\nIf some of them are still needed, run `brew install` on them (it will tell
+you 'already installed', but still mark formula as 'requested').
+
+Remove the above formulae? [y/N]"
+	answer = gets.strip
+end
+
+if ['y', 'Y'].include?(answer)
+	exec("brew rm #{remove.join(' ')}")
+elsif ['n', 'N', ''].include?(answer)
+	exit(0)
+else
+	puts "Unrecognized answer: #{answer}. Aborting."
+	exit(1)
+end

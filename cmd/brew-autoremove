@@ -37,6 +37,8 @@ info.each { |f|
 		:requested => requested,
 		:rdeps => [],
 	}
+
+	f['aliases'].each { |a| graph[a] = graph[f['full_name']] unless graph.has_key?(a) }
 }
 
 # Populate rdeps.

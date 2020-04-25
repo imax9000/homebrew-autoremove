@@ -43,7 +43,12 @@ info.each { |f|
 
 # Populate rdeps.
 info.each { |f|
-	deps = f['installed'].map{|ver| ver['runtime_dependencies'].map{|dep| dep['full_name']}}.flatten.sort.uniq
+	deps = f['installed'].reduce([]) { |memo, ver|
+		ver['runtime_dependencies'].
+			map { |dep| dep['full_name'] }.
+			select { |name| graph.has_key?(name) }.
+			concat(memo)
+	}.uniq.sort
 
 	deps.each { |dep|
 		graph[dep][:rdeps].push(f['full_name'])

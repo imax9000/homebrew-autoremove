@@ -41,7 +41,7 @@ info.each { |f|
 	f['aliases'].each { |a| graph[a] = graph[f['full_name']] unless graph.has_key?(a) }
 }
 
-# Populate rdeps.
+# Populate reverse deps.
 info.each { |f|
 	deps = f['installed'].reduce([]) { |memo, ver|
 		ver['runtime_dependencies'].
@@ -55,7 +55,16 @@ info.each { |f|
 	}
 }
 
-# Generate list unused entries.
+# Generate the list of unused entries.
+#
+# This is a simple algorithm that loops over all nodes, removes nodes that are
+# not marked as 'requested' and not required by any other nodes. This process
+# repeats until there are no nodes to be removed.
+# It is guaranteed to converge on a finite graph: number of nodes decreases at
+# each step, and it will stop at 0 nodes, if nothing else.
+# However, it's not guaranteed to remove all offending nodes in the presence of
+# cycles. But managing dependency graphs with cycles is out of scope for the
+# foreseeable future.
 remove = []
 loop {
 	l = []

@@ -1,3 +1,7 @@
+# DEPRECATED
+
+This repository is now archived, since the command with the same name and functionality if now distributed with Homebrew by default.
+
 # `brew autoremove`
 
 This repository provides a command for [Homebrew](https://brew.sh) to list and
